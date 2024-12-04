@@ -131,10 +131,10 @@ def threshold(img, threshold_setting):
     return (ret4, th4)
 
 
-# img = cv2.imread("A-D-64QFP-14B-SM.png")
-img = cv2.imread("A-D-64QFP-15B-SM.png")
-# img = cv2.imread("A-J-28SOP-01B-SM.png")
-# img = cv2.imread("C-T-28SOP-04F-SM.png")
+# img = cv2.imread("marking_images/A-J-28SOP-03F-SM.png")
+img = cv2.imread("marking_images/C-T-08DIP-11F-SM.png")
+# img = cv2.imread("marking_images/C-T-48QFP-19F-SM.png")
+# img = cv2.imread("marking_images/C-T-48QFP-20F-SM.png")
 img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 (h, w) = img.shape[:2]
 img = cv2.resize(img, (int(w / 4), int(h / 4)))
