@@ -233,5 +233,7 @@ disp_image(img_rgb, "Bounding Boxes")
 # disp_image(cv2.merge([img, shadowless_img]), "Final Image")
 # disp_image(img, "Shadowless Image")
 
+# NOTE: We need to utilize a merging capability similar to what is shown in this SO post: https://stackoverflow.com/questions/66490374/how-to-merge-nearby-bounding-boxes-opencv
+
 
 cv2.destroyAllWindows()
