@@ -18,7 +18,7 @@ def remove_shadows(image_path):
     l, a, b = cv2.split(lab)
 
     # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to enhance contrast
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    clahe = cv2.createCLAHE(clipLimit=6.0, tileGridSize=(50, 50))
     l_enhanced = clahe.apply(l)
 
     # Merge back the LAB channels
@@ -188,9 +188,8 @@ image_corpus = [
     "./pins_images/A-D-64QFP-15B-SM.png",
     "./pins_images/C-T-28SOP-04F-SM.png",
 ]
-input_image = image_corpus[3]  # Path to the input image
+input_image = image_corpus[0]  # Path to the input image
 shadowless_img = remove_shadows(input_image)
-
 
 img = cv2.imread(input_image)
 img_rgb = cv2.imread(input_image)
@@ -204,25 +203,28 @@ contours, hierarchy = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_N
 
 if len(contours) != 0:
     # draw in blue the contours that were founded
-    c = max(contours, key=cv2.contourArea)
-    x, y, w, h = cv2.boundingRect(c)
+    print("Len Contours", len(contours))
+    sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    # c = max(contours, key=cv2.contourArea)
+    cv2.drawContours(shadowless_img, sorted_contours[:1], -1, (255, 255, 255), -1)
+    # x, y, w, h = cv2.boundingRect(c)
 
-    # draw the biggest contour (c) in green
-    cv2.rectangle(shadowless_img, (x, y), (x + w, y + h), (255, 255, 255), -1)
+    # # draw the biggest contour (c) in green
+    # cv2.rectangle(shadowless_img, (x, y), (x + w, y + h), (255, 255, 255), -1)
 
 disp_image(shadowless_img, "Rect Image")
 
-edges = cv2.Canny(shadowless_img, 20, 100)
+edges = cv2.Canny(shadowless_img, 0, 257)
 disp_image(edges, "Canny")
 
-contours, hierarchy = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 print(f"Number of contours: {len(contours)}")
 
 bounding_boxes = []
 for contour in contours:
     x, y, w, h = cv2.boundingRect(contour)
     area = w * h
-    if 100 < area < 15000 and (10 < w) and (10 < h):
+    if 100 < area < 15000 and (7 < w) and (7 < h):
         # if (5 < w < 200) and (5 < h < 200):
         bounding_boxes.append((x, y, w, h))
         cv2.rectangle(img_rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
