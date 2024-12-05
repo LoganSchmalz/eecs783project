@@ -3,6 +3,11 @@ import cv2
 import numpy as np
 
 
+def doOpt(b, f):
+    if b:
+        f()
+
+
 # merging boxes algorithm from https://stackoverflow.com/questions/66490374/
 # tuplify
 def tup(point):
@@ -111,8 +116,8 @@ def merge(boxes, merge_margin, img=None):
             area = w * h
             # h_modifier = 0.2 * h if h > (w * 1.3) else 1
             # w_modifier = 0.2 * w if w > (h * 1.3) else 1
-            h_modifier = 5 * (h / w) ** 2 if h > (w * 1.3) else 1
-            w_modifier = 5 * (w / h) ** 2 if w > (h * 1.3) else 1
+            h_modifier = 2 * (h / w) ** 1.5 if h > (w * 1.3) else 1
+            w_modifier = 2 * (w / h) ** 1.5 if w > (h * 1.3) else 1
             # punish small bits as they should not merge as easily
             h_modifier = 1 if area < 250 else h_modifier
             w_modifier = 1 if area < 250 else w_modifier
@@ -246,7 +251,7 @@ def get_contours(edge_img: np.ndarray) -> list:
         w = box[1][0] - box[0][0]
         h = box[1][1] - box[0][1]
         area = w * h
-        if 100 < area < 15000 and (8 < w) and (8 < h):
+        if 120 < area < 15000 and (8 < w) and (8 < h):
             # if (5 < w < 200) and (5 < h < 200):
             filtered.append(box)
             # cv2.rectangle(img_rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -275,6 +280,47 @@ def filter_boxes(boxes: list) -> list:
     return filtered_boxes
 
 
+def run_img(img_path: str, disp_all: bool) -> np.ndarray:
+    # NOTE: Throughout the functions that accept images will expect them to be in BGR form, and return in BGR form.
+    # Everyone will responsible for their own conversions
+    orig_img = cv2.imread(input_image)
+
+    doOpt(disp_all, lambda _: disp_image(orig_img))
+
+    # Remove shadows from the image
+    shadowless_img = remove_shadows(orig_img)
+    doOpt(disp_all, lambda _: disp_image(shadowless_img))
+
+    # Remove the center from the image
+    remove_center(orig_img, shadowless_img)
+    doOpt(disp_all, lambda _: disp_image(shadowless_img))
+
+    # Detect edges
+    edges = get_edges(shadowless_img)
+    doOpt(disp_all, lambda _: disp_image(edges))
+
+    # get initial boxes
+    boxes = get_contours(edges)
+
+    # Merge boxes
+    boxes = merge(boxes, 1)
+
+    # Draw on boxes
+    boxed_img = draw_boxes(orig_img, boxes)
+    doOpt(disp_all, lambda _: disp_image(boxed_img))
+
+    # Filter boxes
+    filt_boxes = filter_boxes(boxes)
+
+    # Graph boxes based upon w, h, and area
+
+    # Draw new boxes
+    filt_boxed_img = draw_boxes(orig_img, filt_boxes)
+    doOpt(disp_all, lambda _: disp_image(filt_boxed_img))
+
+    return filt_boxed_img
+
+
 # Example usage
 image_corpus = [
     "./pins_images/A-J-28SOP-01B-SM.png",
@@ -282,40 +328,8 @@ image_corpus = [
     "./pins_images/A-D-64QFP-15B-SM.png",
     "./pins_images/C-T-28SOP-04F-SM.png",
 ]
-input_image = image_corpus[3]  # Path to the input image
-# NOTE: Throughout the functions that accept images will expect them to be in BGR form, and return in BGR form.
-# Everyone will responsible for their own conversions
-orig_img = cv2.imread(input_image)
 
-disp_image(orig_img)
-
-# Remove shadows from the image
-shadowless_img = remove_shadows(orig_img)
-disp_image(shadowless_img)
-
-# Remove the center from the image
-remove_center(orig_img, shadowless_img)
-disp_image(shadowless_img)
-
-# Detect edges
-edges = get_edges(shadowless_img)
-disp_image(edges)
-
-# get initial boxes
-boxes = get_contours(edges)
-
-# Merge boxes
-boxes = merge(boxes, 1)
-
-# Draw on boxes
-boxed_img = draw_boxes(orig_img, boxes)
-disp_image(boxed_img)
-
-# Filter boxes
-filt_boxes = filter_boxes(boxes)
-
-# Draw new boxes
-filt_boxed_img = draw_boxes(orig_img, filt_boxes)
-disp_image(filt_boxed_img)
+for input_image in image_corpus:
+    disp_image(run_img(input_image, False))
 
 cv2.destroyAllWindows()
