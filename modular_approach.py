@@ -17,8 +17,10 @@ def tup(point):
 # returns true if the two boxes overlap
 def overlap(source, target):
     # unpack points
-    tl1, br1 = source
-    tl2, br2 = target
+    tl1 = source[0]
+    br1 = source[1]
+    tl2 = target[0]
+    br2 = target[1]
     # checks
     if tl1[0] >= br2[0] or tl2[0] >= br1[0]:
         return False
@@ -75,7 +77,8 @@ def merge_only_overlaps(boxes, img=None):
                 con = []
                 overlaps.append(index)
                 for ind in overlaps:
-                    tl, br = boxes[ind]
+                    tl = boxes[ind][0]
+                    br = boxes[ind][1]
                     con.append([tl])
                     con.append([br])
                 con = np.array(con)
@@ -84,7 +87,7 @@ def merge_only_overlaps(boxes, img=None):
                 # stop growing
                 w -= 1
                 h -= 1
-                merged = [[x, y], [x + w, y + h]]
+                merged = [[x, y], [x + w, y + h], boxes[ind][2]]
                 # highlights
                 highlight = merged[:]
                 points = con
@@ -345,7 +348,7 @@ def draw_boxes(orig_img: np.ndarray, boxes: list) -> np.ndarray:
 
 
 def filter_boxes(boxes: list) -> list:
-    AREA_FILTER = 1000
+    AREA_FILTER = 1500
     filtered_boxes = []
     for box in boxes:
         [x1, y1], [x2, y2] = box
@@ -354,7 +357,29 @@ def filter_boxes(boxes: list) -> list:
     return filtered_boxes
 
 
-def split_boxes(img_center, boxes: list) -> tuple[list, list, list, list, list]:
+def distance(p1, p2):
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+
+def box_centroid(box: list) -> tuple:
+    [x1, y1] = box[0]
+    [x2, y2] = box[1]
+    return (x1 + x2) / 2, (y1 + y2) / 2
+
+
+def box_list_centroid(boxes: list) -> tuple:
+    if len(boxes) == 0:
+        return float("inf"), float("inf")
+    x_sum = 0
+    y_sum = 0
+    for box in boxes:
+        x, y = box_centroid(box)
+        x_sum += x
+        y_sum += y
+    return x_sum / len(boxes), y_sum / len(boxes)
+
+
+def split_boxes(img_center, boxes: list) -> tuple[list, list, list, list]:
     center_x, center_y = img_center
     # First split based on which direction they are point
     up_downs = []
@@ -364,29 +389,88 @@ def split_boxes(img_center, boxes: list) -> tuple[list, list, list, list, list]:
         [x1, y1], [x2, y2] = box
         w = x2 - x1
         h = y2 - y1
-        if w > h * 1.3:
+        if w > h * 1.5:
             left_rights.append([box[0], box[1], (0, 0, 255)])
-        elif h > w * 1.3:
+        elif h > w * 1.5:
             up_downs.append([box[0], box[1], (255, 0, 0)])
         else:
             ambiguous.append([box[0], box[1], (0, 255, 0)])
+    UP_COLOR = (0, 255, 255)
+    DOWN_COLOR = (255, 0, 0)
+    LEFT_COLOR = (255, 255, 0)
+    RIGHT_COLOR = (255, 0, 255)
     # Split the up_downs into up and down
     up_downs = sorted(up_downs, key=lambda x: x[0][1])
     ups = filter(lambda x: x[1][1] < center_y, up_downs)
     # change up colors to yellow
-    ups = list(map(lambda x: [x[0], x[1], (0, 255, 255)], ups))
+    ups = list(map(lambda x: [x[0], x[1], UP_COLOR], ups))
+
     downs = filter(lambda x: x[0][1] > center_y, up_downs)
     # change down colors to red
-    downs = list(map(lambda x: [x[0], x[1], (255, 0, 0)], downs))
+    downs = list(map(lambda x: [x[0], x[1], DOWN_COLOR], downs))
+
     # split the left_rights into left and right
     left_rights = sorted(left_rights, key=lambda x: x[0][0])
     lefts = filter(lambda x: x[1][0] < center_x, left_rights)
     # change left colors to light blue
-    lefts = list(map(lambda x: [x[0], x[1], (255, 255, 0)], lefts))
+    lefts = list(map(lambda x: [x[0], x[1], LEFT_COLOR], lefts))
+
     rights = filter(lambda x: x[0][0] > center_x, left_rights)
     # change right colors to pink
-    rights = list(map(lambda x: [x[0], x[1], (255, 0, 255)], rights))
-    return ups, downs, lefts, rights, ambiguous
+    rights = list(map(lambda x: [x[0], x[1], RIGHT_COLOR], rights))
+
+    # prune any very small sets into ambiguous
+    PRUNE_BOUNDARY = 4
+    if len(ups) < PRUNE_BOUNDARY:
+        ambiguous.extend(ups)
+        ups = []
+    if len(downs) < PRUNE_BOUNDARY:
+        ambiguous.extend(downs)
+        downs = []
+    if len(lefts) < PRUNE_BOUNDARY:
+        ambiguous.extend(lefts)
+        lefts = []
+    if len(rights) < PRUNE_BOUNDARY:
+        ambiguous.extend(rights)
+        rights = []
+
+    # filter ambiguous into whichever they are closest to
+    up_centroid = box_list_centroid(ups)
+    down_centroid = box_list_centroid(downs)
+    left_centroid = box_list_centroid(lefts)
+    right_centroid = box_list_centroid(rights)
+    for box in ambiguous:
+        x, y = box_centroid(box)
+        up_dist = distance((x, y), up_centroid)
+        down_dist = distance((x, y), down_centroid)
+        left_dist = distance((x, y), left_centroid)
+        right_dist = distance((x, y), right_centroid)
+        min_dist = min(up_dist, down_dist, left_dist, right_dist)
+        if min_dist == up_dist:
+            ups.append([box[0], box[1], UP_COLOR])
+        elif min_dist == down_dist:
+            downs.append([box[0], box[1], DOWN_COLOR])
+        elif min_dist == left_dist:
+            lefts.append([box[0], box[1], LEFT_COLOR])
+        else:
+            rights.append([box[0], box[1], RIGHT_COLOR])
+
+    # extend the ups so that they all start at the closest to center point
+    closest_y_ups = max(map(lambda x: x[1][1], ups))
+    ups = list(map(lambda x: [x[0], [x[1][0], closest_y_ups], x[2]], ups))
+    # extend the downs so that they all start at the closest to center point
+    closest_y_downs = min(map(lambda x: x[0][1], downs))
+    downs = list(map(lambda x: [[x[0][0], closest_y_downs], x[1], x[2]], downs))
+    # extend the lefts so that they all start at the closest to center point
+    if len(lefts) != 0:
+        closest_x_lefts = max(map(lambda x: x[1][0], lefts))
+        lefts = list(map(lambda x: [x[0], [closest_x_lefts, x[1][1]], x[2]], lefts))
+    if len(rights) != 0:
+        # extend the rights so that they all start at the closest to center point
+        closest_x_rights = min(map(lambda x: x[0][0], rights))
+        rights = list(map(lambda x: [[closest_x_rights, x[0][1]], x[1], x[2]], rights))
+
+    return ups, downs, lefts, rights
 
 
 def run_img(img_path: str, disp_all: bool) -> np.ndarray:
@@ -426,12 +510,16 @@ def run_img(img_path: str, disp_all: bool) -> np.ndarray:
     img_h, img_w = orig_img.shape[:2]
     center_x = img_w // 2
     center_y = img_h // 2
-    ups, downs, lefts, rights, ambiguous = split_boxes([center_x, center_y], filt_boxes)
+    ups, downs, lefts, rights = split_boxes([center_x, center_y], filt_boxes)
+    new_boxes = ups + downs + lefts + rights
 
     # Draw new boxes
-    filt_boxed_img = draw_boxes_color(
-        orig_img, ups + downs + lefts + rights + ambiguous
-    )
+    filt_boxed_img = draw_boxes_color(orig_img, new_boxes)
+    doOpt(disp_all, lambda _: disp_image(filt_boxed_img))
+
+    # do another merge on the new boxes
+    filt_boxes = merge_only_overlaps(new_boxes)
+    filt_boxed_img = draw_boxes_color(orig_img, filt_boxes)
     doOpt(disp_all, lambda _: disp_image(filt_boxed_img))
 
     return filt_boxed_img
