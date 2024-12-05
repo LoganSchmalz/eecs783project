@@ -37,6 +37,73 @@ def getAllOverlaps(boxes, bounds, index):
     return overlaps
 
 
+def merge_only_overlaps(boxes, img=None):
+    # this is gonna take a long time
+    finished = False
+    highlight = [[0, 0], [1, 1]]
+    points = [[[0, 0]]]
+    while not finished:
+        # set end con
+        finished = True
+        # check progress
+        # print("Len Boxes: " + str(len(boxes)))
+        # draw boxes # comment this section out to run faster
+        if img is not None:
+            copy = np.copy(img)
+            for box in boxes:
+                cv2.rectangle(copy, tup(box[0]), tup(box[1]), (0, 200, 0), 1)
+            cv2.rectangle(copy, tup(highlight[0]), tup(highlight[1]), (0, 0, 255), 2)
+            for point in points:
+                point = point[0]
+                cv2.circle(copy, tup(point), 4, (255, 0, 0), -1)
+            disp_image(copy, "Copy")
+
+        # loop through boxes
+        index = len(boxes) - 1
+        while index >= 0:
+            # grab current box
+            curr = boxes[index]
+            # add margin
+            tl = curr[0][:]
+            br = curr[1][:]
+            # get matching boxes
+            overlaps = getAllOverlaps(boxes, [tl, br], index)
+            # check if empty
+            if len(overlaps) > 0:
+                # combine boxes
+                # convert to a contour
+                con = []
+                overlaps.append(index)
+                for ind in overlaps:
+                    tl, br = boxes[ind]
+                    con.append([tl])
+                    con.append([br])
+                con = np.array(con)
+                # get bounding rect
+                x, y, w, h = cv2.boundingRect(con)
+                # stop growing
+                w -= 1
+                h -= 1
+                merged = [[x, y], [x + w, y + h]]
+                # highlights
+                highlight = merged[:]
+                points = con
+                # remove boxes from list
+                overlaps.sort(reverse=True)
+                for ind in overlaps:
+                    del boxes[ind]
+                boxes.append(merged)
+                # set flag
+                finished = False
+                break
+
+            # increment
+            index -= 1
+    cv2.destroyAllWindows()
+
+    return boxes
+
+
 def merge(boxes, merge_margin, img=None):
     # this is gonna take a long time
     finished = False
@@ -263,6 +330,13 @@ def get_contours(edge_img: np.ndarray) -> list:
     return boxes
 
 
+def draw_boxes_color(orig_img: np.ndarray, boxes: list) -> np.ndarray:
+    my_img = orig_img.copy()
+    for box in boxes:
+        cv2.rectangle(my_img, tup(box[0]), tup(box[1]), box[2], 5)
+    return my_img
+
+
 def draw_boxes(orig_img: np.ndarray, boxes: list) -> np.ndarray:
     my_img = orig_img.copy()
     for box in boxes:
@@ -278,6 +352,41 @@ def filter_boxes(boxes: list) -> list:
         if (x2 - x1) * (y2 - y1) >= AREA_FILTER:
             filtered_boxes.append(box)
     return filtered_boxes
+
+
+def split_boxes(img_center, boxes: list) -> tuple[list, list, list, list, list]:
+    center_x, center_y = img_center
+    # First split based on which direction they are point
+    up_downs = []
+    left_rights = []
+    ambiguous = []
+    for box in boxes:
+        [x1, y1], [x2, y2] = box
+        w = x2 - x1
+        h = y2 - y1
+        if w > h * 1.3:
+            left_rights.append([box[0], box[1], (0, 0, 255)])
+        elif h > w * 1.3:
+            up_downs.append([box[0], box[1], (255, 0, 0)])
+        else:
+            ambiguous.append([box[0], box[1], (0, 255, 0)])
+    # Split the up_downs into up and down
+    up_downs = sorted(up_downs, key=lambda x: x[0][1])
+    ups = filter(lambda x: x[1][1] < center_y, up_downs)
+    # change up colors to yellow
+    ups = list(map(lambda x: [x[0], x[1], (0, 255, 255)], ups))
+    downs = filter(lambda x: x[0][1] > center_y, up_downs)
+    # change down colors to red
+    downs = list(map(lambda x: [x[0], x[1], (255, 0, 0)], downs))
+    # split the left_rights into left and right
+    left_rights = sorted(left_rights, key=lambda x: x[0][0])
+    lefts = filter(lambda x: x[1][0] < center_x, left_rights)
+    # change left colors to light blue
+    lefts = list(map(lambda x: [x[0], x[1], (255, 255, 0)], lefts))
+    rights = filter(lambda x: x[0][0] > center_x, left_rights)
+    # change right colors to pink
+    rights = list(map(lambda x: [x[0], x[1], (255, 0, 255)], rights))
+    return ups, downs, lefts, rights, ambiguous
 
 
 def run_img(img_path: str, disp_all: bool) -> np.ndarray:
@@ -312,10 +421,17 @@ def run_img(img_path: str, disp_all: bool) -> np.ndarray:
     # Filter boxes
     filt_boxes = filter_boxes(boxes)
 
-    # Graph boxes based upon w, h, and area
+    # Split into a N, E, S, W groups
+    # find center_x and center_y
+    img_h, img_w = orig_img.shape[:2]
+    center_x = img_w // 2
+    center_y = img_h // 2
+    ups, downs, lefts, rights, ambiguous = split_boxes([center_x, center_y], filt_boxes)
 
     # Draw new boxes
-    filt_boxed_img = draw_boxes(orig_img, filt_boxes)
+    filt_boxed_img = draw_boxes_color(
+        orig_img, ups + downs + lefts + rights + ambiguous
+    )
     doOpt(disp_all, lambda _: disp_image(filt_boxed_img))
 
     return filt_boxed_img
