@@ -63,10 +63,60 @@ def merge(boxes, merge_margin, img=None):
             # add margin
             tl = curr[0][:]
             br = curr[1][:]
-            tl[0] -= merge_margin
-            tl[1] -= merge_margin
-            br[0] += merge_margin
-            br[1] += merge_margin
+            # get matching boxes
+            overlaps = getAllOverlaps(boxes, [tl, br], index)
+            # check if empty
+            if len(overlaps) > 0:
+                # combine boxes
+                # convert to a contour
+                con = []
+                overlaps.append(index)
+                for ind in overlaps:
+                    tl, br = boxes[ind]
+                    con.append([tl])
+                    con.append([br])
+                con = np.array(con)
+                # get bounding rect
+                x, y, w, h = cv2.boundingRect(con)
+                # stop growing
+                w -= 1
+                h -= 1
+                merged = [[x, y], [x + w, y + h]]
+                # highlights
+                highlight = merged[:]
+                points = con
+                # remove boxes from list
+                overlaps.sort(reverse=True)
+                for ind in overlaps:
+                    del boxes[ind]
+                boxes.append(merged)
+                # set flag
+                finished = False
+                break
+
+            # increment
+            index -= 1
+
+        # loop through boxes
+        index = len(boxes) - 1
+        while index >= 0:
+            # grab current box
+            curr = boxes[index]
+            # We want to have a directional merge, so we are more likely to merge boxes that are in the same dimension as the current longest dimension of the box
+            # print(curr)
+            # add margin
+            tl = curr[0][:]
+            x1, x2 = curr[0][0], curr[1][0]
+            y1, y2 = curr[0][1], curr[1][1]
+            w = x2 - x1
+            h = y2 - y1
+            h_modifier = 0.1 * h if h > (w * 1.1) else 1
+            w_modifier = 0.1 * w if w > (h * 1.1) else 1
+            br = curr[1][:]
+            tl[0] -= merge_margin * w_modifier
+            tl[1] -= merge_margin * h_modifier
+            br[0] += merge_margin * w_modifier
+            br[1] += merge_margin * h_modifier
             # get matching boxes
             overlaps = getAllOverlaps(boxes, [tl, br], index)
             # check if empty
@@ -220,19 +270,28 @@ for box in boxes:
         filtered.append(box)
         # cv2.rectangle(img_rgb, (x, y), (x + w, y + h), (0, 255, 0), 2)
 boxes = filtered
+boxes = sorted(
+    boxes, key=(lambda x: (x[1][0] - x[0][0]) * (x[1][1] - x[0][1])), reverse=True
+)
 
-print(len(boxes))
-disp_image(img_rgb, "Bounding Boxes")
+print("# Boxes: ", len(boxes))
+# disp_image(img_rgb, "Bounding Boxes")
 
 # disp_image(cv2.merge([img, shadowless_img]), "Final Image")
 # disp_image(img, "Shadowless Image")
 
+img_initial_boxes = cv2.imread(input_image)
+img_final = cv2.imread(input_image)
+
 # NOTE: We need to utilize a merging capability similar to what is shown in this SO post: https://stackoverflow.com/questions/66490374/how-to-merge-nearby-bounding-boxes-opencv
 # NOTE: second argument is merge_margin (affects allowed gaps)
-boxes = merge(boxes, 0)
+boxes = merge(boxes, 1)
+
 for box in boxes:
-    cv2.rectangle(img_rgb, tup(box[0]), tup(box[1]), (0, 200, 0), 5)
-(img_rgb_h, img_rgb_w) = img_rgb.shape[:2]
-img_rgb = cv2.resize(img_rgb, (int(img_rgb_w / 3), int(img_rgb_h / 3)))
-disp_image(img_rgb, "Bounding Boxes")
+    cv2.rectangle(img_initial_boxes, tup(box[0]), tup(box[1]), (0, 200, 0), 5)
+disp_image(img_initial_boxes, "Bounding Boxes")
+
+# Now we want to do the more aggressive merge for directional boxes
+
+
 cv2.destroyAllWindows()
