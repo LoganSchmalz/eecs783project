@@ -1,6 +1,8 @@
 import numpy as np
 import cv2 as cv2
 from matplotlib import pyplot as plt
+import easyocr
+import os
 
 
 def threshold(img, threshold_setting):
@@ -130,20 +132,57 @@ def threshold(img, threshold_setting):
 
     return (ret4, th4)
 
+img_list = ["marking_images/A-J-28SOP-03F-SM.png", "marking_images/C-T-08DIP-11F-SM.png", "marking_images/C-T-48QFP-19F-SM.png", "marking_images/C-T-48QFP-20F-SM.png"]
 
 # img = cv2.imread("marking_images/A-J-28SOP-03F-SM.png")
-img = cv2.imread("marking_images/C-T-08DIP-11F-SM.png")
+# img = cv2.imread("marking_images/C-T-08DIP-11F-SM.png")
 # img = cv2.imread("marking_images/C-T-48QFP-19F-SM.png")
 # img = cv2.imread("marking_images/C-T-48QFP-20F-SM.png")
-img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-(h, w) = img.shape[:2]
-img = cv2.resize(img, (int(w / 4), int(h / 4)))
 
-_, th = threshold(img, cv2.THRESH_BINARY_INV)
-blur = cv2.GaussianBlur(th, (51, 51), 0)
-_, th = cv2.threshold(blur, 200, 255, cv2.THRESH_BINARY)
-img = img & th
-cv2.imshow("", img)
-cv2.waitKey(0)
+temp = 1
+for i in img_list: 
+    img = cv2.imread(i)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    (h, w) = img.shape[:2]
+    img = cv2.resize(img, (int(w / 4), int(h / 4)))
+    _, th = threshold(img, cv2.THRESH_BINARY_INV)
+    blur = cv2.GaussianBlur(th, (51, 51), 0)
+    _, th = cv2.threshold(blur, 200, 255, cv2.THRESH_BINARY)
+    img = img & th
+    os.chdir("th_imgs")
+    cv2.imwrite("thImg_{}.png".format(temp), img)
+    cv2.imshow("", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    temp = temp+1
+    os.chdir("..")
 
-cv2.destroyAllWindows()
+
+# reader = easyocr.Reader(['en']) # OCR reader object
+# result1 = reader.readtext(img)
+# # result1 = reader.readtext('marking_images/C-T-08DIP-11F-SM.png')
+# # result2 = reader.readtext('marking_images/A-J-28SOP-03F-SM.png')
+# # result3 = reader.readtext('marking_images/C-T-48QFP-19F-SM.png')
+# # result4 = reader.readtext('marking_images/C-T-48QFP-20F-SM.png')
+
+# print("Markings on image C-T-08DIP-11F-SM.png: \n")
+# for detection in result1:
+#     print(detection[1])
+# print("\n")
+
+# -----
+
+# print("Markings on image A-J-28SOP-03F-SM.png: \n")
+# for detection in result2:
+#     print(detection[1])
+# print("\n")
+
+# print("Markings on image C-T-48QFP-19F-SM.png: \n")
+# for detection in result3:
+#     print(detection[1])
+# print("\n")
+
+# print("Markings on image C-T-48QFP-20F-SM.pn: \n")
+# for detection in result4:
+#     print(detection[1])
+# print("\n")
