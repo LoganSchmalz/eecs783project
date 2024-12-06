@@ -3,6 +3,7 @@ import cv2 as cv2
 from matplotlib import pyplot as plt
 import easyocr
 import os
+import glob
 
 
 def threshold(img, threshold_setting):
@@ -158,31 +159,14 @@ for i in img_list:
     os.chdir("..")
 
 
-# reader = easyocr.Reader(['en']) # OCR reader object
-# result1 = reader.readtext(img)
-# # result1 = reader.readtext('marking_images/C-T-08DIP-11F-SM.png')
-# # result2 = reader.readtext('marking_images/A-J-28SOP-03F-SM.png')
-# # result3 = reader.readtext('marking_images/C-T-48QFP-19F-SM.png')
-# # result4 = reader.readtext('marking_images/C-T-48QFP-20F-SM.png')
+th_img_list = glob.glob("th_imgs/*.png")
+# print(th_img_list)
 
-# print("Markings on image C-T-08DIP-11F-SM.png: \n")
-# for detection in result1:
-#     print(detection[1])
-# print("\n")
+reader = easyocr.Reader(['en']) # OCR reader object
 
-# -----
+for img in th_img_list:
+    result = reader.readtext(img)
 
-# print("Markings on image A-J-28SOP-03F-SM.png: \n")
-# for detection in result2:
-#     print(detection[1])
-# print("\n")
-
-# print("Markings on image C-T-48QFP-19F-SM.png: \n")
-# for detection in result3:
-#     print(detection[1])
-# print("\n")
-
-# print("Markings on image C-T-48QFP-20F-SM.pn: \n")
-# for detection in result4:
-#     print(detection[1])
-# print("\n")
+    print("\nMarkings on "+img, ": \n")
+    for detection in result:
+        print(detection[1])
