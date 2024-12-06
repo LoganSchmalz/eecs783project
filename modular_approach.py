@@ -1,4 +1,5 @@
 import math
+from typing import Callable
 import cv2
 import numpy as np
 
@@ -347,12 +348,10 @@ def draw_boxes(orig_img: np.ndarray, boxes: list) -> np.ndarray:
     return my_img
 
 
-def filter_boxes(boxes: list) -> list:
-    AREA_FILTER = 1500
+def filter_boxes(boxes: list, filter: Callable[[list], bool]) -> list:
     filtered_boxes = []
     for box in boxes:
-        [x1, y1], [x2, y2] = box
-        if (x2 - x1) * (y2 - y1) >= AREA_FILTER:
+        if filter(box):
             filtered_boxes.append(box)
     return filtered_boxes
 
@@ -367,6 +366,12 @@ def box_centroid(box: list) -> tuple:
     return (x1 + x2) / 2, (y1 + y2) / 2
 
 
+def box_area(box: list) -> float:
+    [x1, y1] = box[0]
+    [x2, y2] = box[1]
+    return (x2 - x1) * (y2 - y1)
+
+
 def box_list_centroid(boxes: list) -> tuple:
     if len(boxes) == 0:
         return float("inf"), float("inf")
@@ -377,6 +382,17 @@ def box_list_centroid(boxes: list) -> tuple:
         x_sum += x
         y_sum += y
     return x_sum / len(boxes), y_sum / len(boxes)
+
+
+UP_COLOR = (0, 255, 255)
+DOWN_COLOR = (255, 0, 0)
+LEFT_COLOR = (255, 255, 0)
+RIGHT_COLOR = (255, 0, 255)
+
+# Green is good color
+GOOD_COLOR = (0, 255, 0)
+# Red is bad color
+BAD_COLOR = (0, 0, 255)
 
 
 def split_boxes(img_center, boxes: list) -> tuple[list, list, list, list]:
@@ -395,10 +411,6 @@ def split_boxes(img_center, boxes: list) -> tuple[list, list, list, list]:
             up_downs.append([box[0], box[1], (255, 0, 0)])
         else:
             ambiguous.append([box[0], box[1], (0, 255, 0)])
-    UP_COLOR = (0, 255, 255)
-    DOWN_COLOR = (255, 0, 0)
-    LEFT_COLOR = (255, 255, 0)
-    RIGHT_COLOR = (255, 0, 255)
     # Split the up_downs into up and down
     up_downs = sorted(up_downs, key=lambda x: x[0][1])
     ups = filter(lambda x: x[1][1] < center_y, up_downs)
@@ -473,6 +485,65 @@ def split_boxes(img_center, boxes: list) -> tuple[list, list, list, list]:
     return ups, downs, lefts, rights
 
 
+def split_boxes_by_color(boxes: list) -> tuple[list, list, list, list]:
+    ups = []
+    downs = []
+    lefts = []
+    rights = []
+    for box in boxes:
+        if box[2] == UP_COLOR:
+            ups.append(box)
+        elif box[2] == DOWN_COLOR:
+            downs.append(box)
+        elif box[2] == LEFT_COLOR:
+            lefts.append(box)
+        elif box[2] == RIGHT_COLOR:
+            rights.append(box)
+    return ups, downs, lefts, rights
+
+
+def find_outliers(boxes: list) -> list:
+    if len(boxes) == 0:
+        return []
+    # find the avg, med, std dev for width, height, and area
+    widths = list(map(lambda x: x[1][0] - x[0][0], boxes))
+    heights = list(map(lambda x: x[1][1] - x[0][1], boxes))
+    areas = list(map(lambda x: (x[1][0] - x[0][0]) * (x[1][1] - x[0][1]), boxes))
+    avg_width = sum(widths) / len(widths)
+    avg_height = sum(heights) / len(heights)
+    avg_area = sum(areas) / len(areas)
+    med_width = sorted(widths)[len(widths) // 2]
+    med_height = sorted(heights)[len(heights) // 2]
+    med_area = sorted(areas)[len(areas) // 2]
+    std_width = math.sqrt(
+        sum(map(lambda x: (x - avg_width) ** 2, widths)) / len(widths)
+    )
+    std_height = math.sqrt(
+        sum(map(lambda x: (x - avg_height) ** 2, heights)) / len(heights)
+    )
+    std_area = math.sqrt(sum(map(lambda x: (x - avg_area) ** 2, areas)) / len(areas))
+    # any box that is 2 std deviations away from the avg is an outlier
+    # so for any outlier we change its color to BAD
+    # for any non outlier we change its color to GOOD
+    new_boxes = []
+    for box in boxes:
+        w = box[1][0] - box[0][0]
+        h = box[1][1] - box[0][1]
+        area = w * h
+        if (
+            w > avg_width + 2 * std_width
+            or h > avg_height + 2 * std_height
+            or area > avg_area + 2 * std_area
+            or w < avg_width - 2 * std_width
+            or h < avg_height - 2 * std_height
+            or area < avg_area - 2 * std_area
+        ):
+            new_boxes.append([box[0], box[1], BAD_COLOR])
+        else:
+            new_boxes.append([box[0], box[1], GOOD_COLOR])
+    return new_boxes
+
+
 def run_img(img_path: str, disp_all: bool) -> np.ndarray:
     # NOTE: Throughout the functions that accept images will expect them to be in BGR form, and return in BGR form.
     # Everyone will responsible for their own conversions
@@ -503,7 +574,7 @@ def run_img(img_path: str, disp_all: bool) -> np.ndarray:
     doOpt(disp_all, lambda _: disp_image(boxed_img))
 
     # Filter boxes
-    filt_boxes = filter_boxes(boxes)
+    filt_boxes = filter_boxes(boxes, lambda box: box_area(box) > 1500)
 
     # Split into a N, E, S, W groups
     # find center_x and center_y
@@ -519,10 +590,26 @@ def run_img(img_path: str, disp_all: bool) -> np.ndarray:
 
     # do another merge on the new boxes
     filt_boxes = merge_only_overlaps(new_boxes)
+
+    filt_boxes = filter_boxes(filt_boxes, lambda box: box_area(box) > 5500)
+
     filt_boxed_img = draw_boxes_color(orig_img, filt_boxes)
     doOpt(disp_all, lambda _: disp_image(filt_boxed_img))
 
-    return filt_boxed_img
+    # split boxes back into N, E, S, W
+    ups, downs, lefts, rights = split_boxes_by_color(filt_boxes)
+
+    # find outliers in each group
+    ups = find_outliers(ups)
+    downs = find_outliers(downs)
+    lefts = find_outliers(lefts)
+    rights = find_outliers(rights)
+    new_boxes = ups + downs + lefts + rights
+
+    good_bad_img = draw_boxes_color(orig_img, new_boxes)
+    doOpt(disp_all, lambda _: disp_image(good_bad_img))
+
+    return good_bad_img
 
 
 # Example usage
