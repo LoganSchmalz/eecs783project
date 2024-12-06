@@ -502,7 +502,7 @@ def split_boxes_by_color(boxes: list) -> tuple[list, list, list, list]:
     return ups, downs, lefts, rights
 
 
-def find_outliers(boxes: list) -> list:
+def find_outliers(boxes: list, focusH: bool) -> list:
     if len(boxes) == 0:
         return []
     # find the avg, med, std dev for width, height, and area
@@ -525,18 +525,21 @@ def find_outliers(boxes: list) -> list:
     # any box that is 2 std deviations away from the avg is an outlier
     # so for any outlier we change its color to BAD
     # for any non outlier we change its color to GOOD
+    WIDTH_THRESHOLD = 3 if focusH else 2
+    HEIGHT_THRESHOLD = 3 if not focusH else 2
+    AREA_THRESHOLD = 2
     new_boxes = []
     for box in boxes:
         w = box[1][0] - box[0][0]
         h = box[1][1] - box[0][1]
         area = w * h
         if (
-            w > avg_width + 2 * std_width
-            or h > avg_height + 2 * std_height
-            or area > avg_area + 2 * std_area
-            or w < avg_width - 2 * std_width
-            or h < avg_height - 2 * std_height
-            or area < avg_area - 2 * std_area
+            w > avg_width + WIDTH_THRESHOLD * std_width
+            or h > avg_height + HEIGHT_THRESHOLD * std_height
+            or area > avg_area + AREA_THRESHOLD * std_area
+            or w < avg_width - WIDTH_THRESHOLD * std_width
+            or h < avg_height - HEIGHT_THRESHOLD * std_height
+            or area < avg_area - AREA_THRESHOLD * std_area
         ):
             new_boxes.append([box[0], box[1], BAD_COLOR])
         else:
@@ -547,7 +550,7 @@ def find_outliers(boxes: list) -> list:
 def run_img(img_path: str, disp_all: bool) -> np.ndarray:
     # NOTE: Throughout the functions that accept images will expect them to be in BGR form, and return in BGR form.
     # Everyone will responsible for their own conversions
-    orig_img = cv2.imread(input_image)
+    orig_img = cv2.imread(img_path)
 
     doOpt(disp_all, lambda _: disp_image(orig_img))
 
@@ -600,10 +603,10 @@ def run_img(img_path: str, disp_all: bool) -> np.ndarray:
     ups, downs, lefts, rights = split_boxes_by_color(filt_boxes)
 
     # find outliers in each group
-    ups = find_outliers(ups)
-    downs = find_outliers(downs)
-    lefts = find_outliers(lefts)
-    rights = find_outliers(rights)
+    ups = find_outliers(ups, True)
+    downs = find_outliers(downs, True)
+    lefts = find_outliers(lefts, False)
+    rights = find_outliers(rights, False)
     new_boxes = ups + downs + lefts + rights
 
     good_bad_img = draw_boxes_color(orig_img, new_boxes)
@@ -614,9 +617,9 @@ def run_img(img_path: str, disp_all: bool) -> np.ndarray:
 
 # Example usage
 image_corpus = [
-    "./pins_images/A-J-28SOP-01B-SM.png",
     "./pins_images/A-D-64QFP-14B-SM.png",
     "./pins_images/A-D-64QFP-15B-SM.png",
+    "./pins_images/A-J-28SOP-01B-SM.png",
     "./pins_images/C-T-28SOP-04F-SM.png",
 ]
 
