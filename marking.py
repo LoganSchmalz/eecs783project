@@ -133,6 +133,16 @@ def threshold(img, threshold_setting):
 
     return (ret4, th4)
 
+# contrast function from @/pietz on StackOverflow:
+def adjust_contrast_brightness(img, contrast:float=1.0, brightness:int=0):
+    """
+    Adjusts contrast and brightness of an uint8 image.
+    contrast:   (0.0,  inf) with 1.0 leaving the contrast as is
+    brightness: [-255, 255] with 0 leaving the brightness as is
+    """
+    brightness += int(round(255*(1-contrast)/2))
+    return cv2.addWeighted(img, contrast, img, 0, brightness)
+
 img_list = ["marking_images/A-J-28SOP-03F-SM.png", "marking_images/C-T-08DIP-11F-SM.png", "marking_images/C-T-48QFP-19F-SM.png", "marking_images/C-T-48QFP-20F-SM.png"]
 
 # img = cv2.imread("marking_images/A-J-28SOP-03F-SM.png")
@@ -150,23 +160,30 @@ for i in img_list:
     blur = cv2.GaussianBlur(th, (51, 51), 0)
     _, th = cv2.threshold(blur, 200, 255, cv2.THRESH_BINARY)
     img = img & th
-    os.chdir("th_imgs")
-    cv2.imwrite("thImg_{}.png".format(temp), img)
-    cv2.imshow("", img)
+
+    # -------- comment out this section to get rid of contrast
+    cv2.imshow("", img) #shows image after threshholding and before adjusting brightness/contrast
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    img = adjust_contrast_brightness(img, 2, 25) # I arbitrarily chose numbers and adjusted from there, feel free to edit
+    # ---------- ^^
+
+    os.chdir("th_imgs") # change directory to th_imgs folder
+    cv2.imwrite("thImg_{}.png".format(temp), img) # save the updated thresholded image
+    cv2.imshow("", img) #shows image after adjusting brightness/contrast
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     temp = temp+1
-    os.chdir("..")
+    os.chdir("..") 
 
 
-th_img_list = glob.glob("th_imgs/*.png")
+th_img_list = glob.glob("th_imgs/*.png") # create a list of all images with .png filetype in the th_imgs folder
 # print(th_img_list)
 
 reader = easyocr.Reader(['en']) # OCR reader object
 
 for img in th_img_list:
-    result = reader.readtext(img)
-
+    result = reader.readtext(img) 
     print("\nMarkings on "+img, ": \n")
     for detection in result:
-        print(detection[1])
+        print(detection[1]) # for all imgs in list, read text with OCR reader and print
