@@ -6,7 +6,7 @@ import numpy as np
 
 def doOpt(b, f):
     if b:
-        f()
+        f(0)
 
 
 # merging boxes algorithm from https://stackoverflow.com/questions/66490374/
@@ -240,11 +240,19 @@ def merge(boxes, merge_margin, img=None):
 #####
 
 
-def disp_image(image, title="Image"):
-    cv2.imshow(title, image)
-    cv2.setWindowProperty(title, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+def disp_image(image, title="Image", save_image=False):
+    global IMAGE_COUNTER
+    global IMAGE_BASE_NAME
+    global IMG_SAVE_DIR
+    img_title = f"{IMAGE_BASE_NAME}_{title}_{IMAGE_COUNTER}"
+    cv2.imshow(img_title, image)
+    if save_image:
+        print(f"Saving image to {IMG_SAVE_DIR}{img_title}.png")
+        cv2.imwrite(f"{IMG_SAVE_DIR}{img_title}.png", image)
+    cv2.setWindowProperty(img_title, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    IMAGE_COUNTER += 1
     cv2.waitKey(0)
-    cv2.destroyWindow(title)
+    cv2.destroyWindow(img_title)
 
 
 def remove_shadows(img: np.ndarray) -> np.ndarray:
@@ -623,7 +631,11 @@ image_corpus = [
     "./pins_images/C-T-28SOP-04F-SM.png",
 ]
 
+IMG_SAVE_DIR = "./output_images/"
+
 for input_image in image_corpus:
+    IMAGE_COUNTER = 0
+    IMAGE_BASE_NAME = input_image.split("/")[-1].split(".")[0]
     disp_image(run_img(input_image, False))
 
 cv2.destroyAllWindows()
