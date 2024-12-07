@@ -1,5 +1,7 @@
 EECS 783 (Hardware Security) - Final Project
+
 Project 2: IC image analysis for counterfeit detection
+
 Logan Schmalz, Aidan Schmelzle, Will Thomas
 
 Objective: Develop a tool to automatically analyze the image of an IC to identify specific
