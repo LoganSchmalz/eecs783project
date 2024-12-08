@@ -10,7 +10,7 @@ def disp_image(image, title="Image", save_image=False):
     (h, w) = image.shape[:2]
     img = cv2.resize(image, (int(w / 4), int(h / 4)))
     cv2.imshow(title, img)
-    cv2.setWindowProperty(title, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    # cv2.setWindowProperty(title, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     cv2.waitKey(0)
     cv2.destroyWindow(title)
 
@@ -65,7 +65,7 @@ for i in img_list:
 
     # -------- comment out this section to get rid of contrast
     disp_image(
-        img, ""
+        img, "contrast"
     )  # shows image after threshholding and before adjusting brightness/contrast
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -80,11 +80,11 @@ for i in img_list:
     ]
     # maybe adjust 30 to different values here
     img = cv2.fastNlMeansDenoisingColored(img, None, 30, 30, 7, 21)
-    disp_image(img, "")
+    disp_image(img, "denoise")
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    disp_image(img, "")
+    disp_image(img, "grayscale")
     _, th = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    disp_image(th, "")
+    disp_image(th, "threshold")
     img = th
 
     os.chdir("th_imgs")  # change directory to th_imgs folder
