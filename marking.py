@@ -15,132 +15,25 @@ def disp_image(image, title="Image", save_image=False):
     cv2.destroyWindow(title)
 
 
-def threshold(img, threshold_setting):
-    images = []
-    titles = []
+def isolate_center(orig_img: np.ndarray) -> (int, int, int, int):
+    my_img = orig_img.copy()
 
-    # global thresholding
-    global_threshold_val = 127
-    ret1, th1 = cv2.threshold(img, global_threshold_val, 255, threshold_setting)
-    images.extend(
-        [
-            img,
-            0,
-            th1,
-        ]
-    )
-    titles.extend(
-        [
-            "Original Noisy Image",
-            "Histogram",
-            f"Global Thresholding (v={global_threshold_val})",
-        ]
-    )
+    my_img = cv2.cvtColor(my_img, cv2.COLOR_BGR2GRAY)
+    # apply threshold to mask IC housing
+    blur2 = cv2.bilateralFilter(my_img, 9, 75, 75)
+    _, th = cv2.threshold(blur2, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    contours, hierarchy = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-    # Otsu's thresholding
-    ret2, th2 = cv2.threshold(img, 0, 255, threshold_setting + cv2.THRESH_OTSU)
-    images.extend(
-        [
-            img,
-            0,
-            th2,
-        ]
-    )
-    titles.extend(
-        [
-            "Original Noisy Image",
-            "Histogram",
-            "Otsu's Thresholding",
-        ]
-    )
+    if len(contours) != 0:
+        # draw in blue the contours that were founded
+        print("Len Contours", len(contours))
+        # sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
+        c = max(contours, key=cv2.contourArea)
+        # cv2.drawContours(th2, sorted_contours[:1], -1, (255, 255, 255), -1)
+        x, y, w, h = cv2.boundingRect(c)
+        return (x + 100, y + 100, w - 100, h - 100)
 
-    # Otsu's thresholding after Gaussian filtering
-    kernel_size = 3
-    blur = cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
-    ret3, th3 = cv2.threshold(blur, 0, 255, threshold_setting + cv2.THRESH_OTSU)
-    images.extend(
-        [
-            blur,
-            0,
-            th3,
-        ]
-    )
-    titles.extend(
-        [
-            "Gaussian filtered Image",
-            "Histogram",
-            "Otsu's Thresholding",
-        ]
-    )
-
-    # Otsu's thresholding after bilateral filtering
-    sigma = 75  # 75
-    blur2 = cv2.bilateralFilter(img, 9, sigma, sigma)
-    ret4, th4 = cv2.threshold(blur2, 0, 255, threshold_setting + cv2.THRESH_OTSU)
-    images.extend(
-        [
-            blur2,
-            0,
-            th4,
-        ]
-    )
-    titles.extend(
-        [
-            "Bilateral filtered Image",
-            "Histogram",
-            "Otsu's Thresholding",
-        ]
-    )
-
-    # th5 = cv2.adaptiveThreshold(
-    #     img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, threshold_setting, 11, 2
-    # )
-    # images.extend(
-    #     [
-    #         img,
-    #         0,
-    #         th5,
-    #     ]
-    # )
-    # titles.extend(
-    #     [
-    #         "Original Noisy Image",
-    #         "Histogram",
-    #         "Adaptive Thresholding",
-    #     ]
-    # )
-
-    th6 = cv2.adaptiveThreshold(
-        blur2, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, threshold_setting, 11, 2
-    )
-    images.extend(
-        [
-            blur2,
-            0,
-            th6,
-        ]
-    )
-    titles.extend(
-        [
-            "Bilateral filtered Image",
-            "Histogram",
-            "Adaptive Thresholding",
-        ]
-    )
-
-    # plot all the images and their histograms
-    # i_max = int(len(images) / 3)
-    # for i in range(i_max):
-    #     plt.subplot(i_max, 3, i * 3 + 1), plt.imshow(images[i * 3], "gray")
-    #     plt.title(titles[i * 3]), plt.xticks([]), plt.yticks([])
-    #     plt.subplot(i_max, 3, i * 3 + 2), plt.hist(images[i * 3].ravel(), 256)
-    #     plt.title(titles[i * 3 + 1]), plt.xticks([]), plt.yticks([])
-    #     plt.subplot(i_max, 3, i * 3 + 3), plt.imshow(images[i * 3 + 2], "gray")
-    #     plt.title(titles[i * 3 + 2]), plt.xticks([]), plt.yticks([])
-    # plt.show()
-    # plt.cla()
-
-    return (ret4, th4)
+    return (0, 0, my_img.shape[0], my_img.shape[1])
 
 
 # contrast function from @/pietz on StackOverflow:
@@ -169,19 +62,6 @@ img_list = [
 temp = 1
 for i in img_list:
     img = cv2.imread(i)
-    # Logan messing with preprocessing starts here
-    disp_image(img, "")
-    blur2 = cv2.bilateralFilter(img, 9, 150, 150)
-    disp_image(blur2, "")
-    blur2 = cv2.cvtColor(blur2, cv2.COLOR_BGR2GRAY)
-    disp_image(blur2, "")
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = blur2
-    # messing with preprocessing ends here
-    _, th = threshold(img, cv2.THRESH_BINARY_INV)
-    blur = cv2.GaussianBlur(th, (51, 51), 0)
-    _, th = cv2.threshold(blur, 200, 255, cv2.THRESH_BINARY)
-    img = img & th
 
     # -------- comment out this section to get rid of contrast
     disp_image(
@@ -193,6 +73,19 @@ for i in img_list:
         img, 2, 25
     )  # I arbitrarily chose numbers and adjusted from there, feel free to edit
     # ---------- ^^
+
+    center = isolate_center(img)
+    img = img[
+        center[1] : center[1] + center[3] - 100, center[0] : center[0] + center[2] - 100
+    ]
+    # maybe adjust 30 to different values here
+    img = cv2.fastNlMeansDenoisingColored(img, None, 30, 30, 7, 21)
+    disp_image(img, "")
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    disp_image(img, "")
+    _, th = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    disp_image(th, "")
+    img = th
 
     os.chdir("th_imgs")  # change directory to th_imgs folder
     cv2.imwrite("thImg_{}.png".format(temp), img)  # save the updated thresholded image
