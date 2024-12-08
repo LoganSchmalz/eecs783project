@@ -65,7 +65,7 @@ for i in img_list:
 
     # -------- comment out this section to get rid of contrast
     disp_image(
-        img, "contrast"
+        img, "original"
     )  # shows image after threshholding and before adjusting brightness/contrast
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -80,7 +80,7 @@ for i in img_list:
     ]
     # maybe adjust 30 to different values here
     img = cv2.fastNlMeansDenoisingColored(img, None, 30, 30, 7, 21)
-    disp_image(img, "denoise")
+    disp_image(img, "contrast + denoise")
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     disp_image(img, "grayscale")
     _, th = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
