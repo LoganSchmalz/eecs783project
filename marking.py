@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 import easyocr
 import os
 import glob
+# import pytesseract
 
 
 def disp_image(image, title="Image", save_image=False):
@@ -67,8 +68,8 @@ for i in img_list:
     disp_image(
         img, "contrast"
     )  # shows image after threshholding and before adjusting brightness/contrast
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     img = adjust_contrast_brightness(
         img, 2, 25
     )  # I arbitrarily chose numbers and adjusted from there, feel free to edit
@@ -90,8 +91,8 @@ for i in img_list:
     os.chdir("th_imgs")  # change directory to th_imgs folder
     cv2.imwrite("thImg_{}.png".format(temp), img)  # save the updated thresholded image
     disp_image(img, "")  # shows image after adjusting brightness/contrast
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     temp = temp + 1
     os.chdir("..")
 
@@ -99,8 +100,10 @@ for i in img_list:
 th_img_list = glob.glob(
     "th_imgs/*.png"
 )  # create a list of all images with .png filetype in the th_imgs folder
-# print(th_img_list)
+print(th_img_list)
 
+
+# ----- EASY OCR -----
 reader = easyocr.Reader(["en"])  # OCR reader object
 
 for img in th_img_list:
@@ -108,3 +111,32 @@ for img in th_img_list:
     print("\nMarkings on " + img, ": \n")
     for detection in result:
         print(detection[1])  # for all imgs in list, read text with OCR reader and print
+
+
+# ----- TESSERACT -----
+# pytesseract.pytesseract.tesseract_cmd = r'/Users/aidan/Library/Python/3.9/bin'
+# Perform OCR on an image
+# for img in th_img_list:
+#     text = pytesseract.image_to_string('img')
+#     print("\nMarkings on " + img, ": \n")
+#     for line in text:
+#         print(text)
+
+
+# ----- KERAS (DOESN'T WORK) -----
+# pipeline = keras_ocr.pipeline.Pipeline()
+
+
+# ----- OCRA (doesn't work) -----
+# you'll just have to:
+# >> pip3 install "paddleocr>=2.0.1"
+# >> pip3 install paddleocr --upgrade (maybe)
+# >> pip3 install paddlepaddle
+
+# ocr = PaddleOCR(use_angle_cls=True, lang='en') # OCRA reader
+
+# for img in th_img_list:
+#     result = ocr.ocr(img, cls=True)
+#     print("\nMarkings on " + img, ": \n")
+#     for line in result:
+#         print(line)
