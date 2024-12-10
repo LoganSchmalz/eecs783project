@@ -161,7 +161,7 @@ print(th_img_list)
 reader = easyocr.Reader(["en"])  # OCR reader object
 
 for img in th_img_list:
-    result = reader.readtext(img)
+    result = reader.readtext(img, allowlist="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-")
     print("\nMarkings on " + img, ": \n")
     for detection in result:
         print(detection[1])  # for all imgs in list, read text with OCR reader and print
