@@ -76,18 +76,6 @@ img_list = [
 temp = 1
 for i in img_list:
     img = cv2.imread(i)
-
-    # -------- comment out this section to get rid of contrast
-    disp_image(
-        img, "contrast"
-    )  # shows image after threshholding and before adjusting brightness/contrast
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    img = adjust_contrast_brightness(
-        img, 2, 25
-    )  # I arbitrarily chose numbers and adjusted from there, feel free to edit
-    # ---------- ^^
-
     center = isolate_center(img)
     img = img[
         center[1] + 100 : center[1] + center[3] - 200,
@@ -159,8 +147,6 @@ for i in img_list:
     os.chdir("th_imgs")  # change directory to th_imgs folder
     cv2.imwrite("thImg_{}.png".format(temp), img)  # save the updated thresholded image
     disp_image(img, "")  # shows image after adjusting brightness/contrast
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
     temp = temp + 1
     os.chdir("..")
 
